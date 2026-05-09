@@ -15,6 +15,7 @@ FPS = 60
 RESTITUTION = 0.55  # 弹性系数（碰撞反弹）
 FRICTION = 0.985
 GRAVITY = 30.0
+GROUND_STICK_EPS = 0.05
 
 BALL_RADIUS = 0.45
 MAX_SPEED = 34.0
@@ -76,6 +77,17 @@ class Track:
 
     def on_track(self, x: float, z: float) -> bool:
         return abs(x) <= TRACK_HALF_WIDTH and 0.0 <= z <= TRACK_LENGTH
+
+    def slope_dz(self, z: float) -> float:
+        if 26.0 <= z < 46.0:
+            return 0.28
+        if 66.0 <= z < 86.0:
+            return -0.28
+        return 0.0
+
+    def ground_normal(self, z: float) -> Vec3:
+        # 高度场 y = h(z), 法线可写成 (0, 1, -h'(z))
+        return Vec3(0.0, 1.0, -self.slope_dz(z)).normalized()
 
 
 class Game:
@@ -160,10 +172,17 @@ class Game:
         # 地形碰撞（平地、斜坡、平台）
         ground = self.track.ground_height(b.pos.z)
         min_y = ground + BALL_RADIUS
-        if b.pos.y < min_y:
+        if b.pos.y <= min_y + GROUND_STICK_EPS:
             b.pos.y = min_y
-            if b.vel.y < 0.0:
-                b.vel.y = -b.vel.y * RESTITUTION
+            n = self.track.ground_normal(b.pos.z)
+            vn = b.vel.dot(n)
+
+            # 小幅度接地时，移除朝向地面的法向速度，避免“每帧下落-反弹”造成抖动
+            if vn < 0.0:
+                if abs(vn) < 1.2:
+                    b.vel = b.vel - n * vn
+                else:
+                    b.vel = b.vel - n * ((1.0 + RESTITUTION) * vn)
 
             # 接地摩擦
             b.vel.x *= FRICTION
