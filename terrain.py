@@ -45,6 +45,17 @@ class Terrain:
         if mode == "adaptive":
             self._smooth_neighbors(x, y)
 
+
+    def set_cell_height(self, cell_x: int, cell_y: int, value: float, mode: Mode) -> None:
+        """Apply height to one full grid cell by updating its 4 corner vertices."""
+        if not (0 <= cell_x < self.width - 1 and 0 <= cell_y < self.height - 1):
+            return
+        corners = [(cell_x, cell_y), (cell_x + 1, cell_y), (cell_x + 1, cell_y + 1), (cell_x, cell_y + 1)]
+        for vx, vy in corners:
+            self.heights[vy, vx] = value
+            if mode == "adaptive":
+                self._smooth_neighbors(vx, vy)
+
     def _smooth_neighbors(self, x: int, y: int) -> None:
         for ny in range(max(0, y - 1), min(self.height, y + 2)):
             for nx in range(max(0, x - 1), min(self.width, x + 2)):
