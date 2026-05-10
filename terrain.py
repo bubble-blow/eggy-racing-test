@@ -87,8 +87,11 @@ def draw_terrain(terrain: Terrain, wireframe: bool = False) -> None:
             h10 = terrain.heights[y, x + 1]
             h11 = terrain.heights[y + 1, x + 1]
             h01 = terrain.heights[y + 1, x]
-            shade = 0.3 + min(0.7, (h00 + h10 + h11 + h01) / 16.0)
-            glColor3f(0.2, shade, 0.2)
+            if wireframe:
+                glColor3f(0.9, 0.95, 1.0)
+            else:
+                shade = 0.3 + min(0.7, (h00 + h10 + h11 + h01) / 16.0)
+                glColor3f(0.2, shade, 0.2)
             glBegin(GL_QUADS)
             glVertex3f(wx, h00, wz)
             glVertex3f(wx + 1, h10, wz)

@@ -1,7 +1,17 @@
 import sys
 
 import pygame
-from OpenGL.GL import GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_DEPTH_TEST, glClear, glEnable
+from OpenGL.GL import (
+    GL_COLOR_BUFFER_BIT,
+    GL_DEPTH_BUFFER_BIT,
+    GL_DEPTH_TEST,
+    GL_MODELVIEW,
+    GL_PROJECTION,
+    glClear,
+    glClearColor,
+    glEnable,
+    glMatrixMode,
+)
 from OpenGL.GLU import gluPerspective
 
 from terrain import Terrain, draw_terrain
@@ -12,7 +22,10 @@ def main() -> None:
     screen = pygame.display.set_mode((1200, 720), pygame.DOUBLEBUF | pygame.OPENGL)
     pygame.display.set_caption("Terrain Editor")
     glEnable(GL_DEPTH_TEST)
+    glClearColor(0.08, 0.1, 0.16, 1.0)
+    glMatrixMode(GL_PROJECTION)
     gluPerspective(60, 1200 / 720, 0.1, 200)
+    glMatrixMode(GL_MODELVIEW)
 
     from OpenGL.GL import glLoadIdentity, glRotatef, glTranslatef
 

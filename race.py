@@ -2,7 +2,17 @@ import math
 import sys
 
 import pygame
-from OpenGL.GL import GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_DEPTH_TEST, glClear, glEnable
+from OpenGL.GL import (
+    GL_COLOR_BUFFER_BIT,
+    GL_DEPTH_BUFFER_BIT,
+    GL_DEPTH_TEST,
+    GL_MODELVIEW,
+    GL_PROJECTION,
+    glClear,
+    glClearColor,
+    glEnable,
+    glMatrixMode,
+)
 from OpenGL.GLU import gluLookAt, gluNewQuadric, gluPerspective, gluSphere
 
 from terrain import Terrain, draw_terrain
@@ -13,7 +23,10 @@ def main() -> None:
     pygame.display.set_mode((1280, 720), pygame.DOUBLEBUF | pygame.OPENGL)
     pygame.display.set_caption("Eggy Racing")
     glEnable(GL_DEPTH_TEST)
+    glClearColor(0.5, 0.72, 0.95, 1.0)
+    glMatrixMode(GL_PROJECTION)
     gluPerspective(70, 1280 / 720, 0.1, 300)
+    glMatrixMode(GL_MODELVIEW)
 
     from OpenGL.GL import glLoadIdentity, glPopMatrix, glPushMatrix, glTranslatef, glColor3f
 
