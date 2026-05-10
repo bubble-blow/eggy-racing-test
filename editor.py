@@ -32,7 +32,7 @@ def main() -> None:
     terrain = Terrain.load()
     mode = "fixed"
     brush_height = 2.0
-    cursor = [max(0, (terrain.width - 1) // 2), max(0, (terrain.height - 1) // 2)]
+    cursor = [max(0, terrain.width // 2), max(0, terrain.height // 2)]
 
 
 
@@ -40,12 +40,7 @@ def main() -> None:
         x, y = cursor
         wx = x - terrain.width / 2
         wz = y - terrain.height / 2
-        h00 = terrain.heights[y, x]
-        x1 = min(x + 1, terrain.width - 1)
-        y1 = min(y + 1, terrain.height - 1)
-        h10 = terrain.heights[y, x1]
-        h11 = terrain.heights[y1, x1]
-        h01 = terrain.heights[y1, x]
+        h00, h10, h11, h01 = terrain.cells[y][x].corners
         offset = 0.06
         glColor3f(1.0, 0.2, 0.2)
         glBegin(GL_LINE_LOOP)
@@ -82,11 +77,11 @@ def main() -> None:
         if keys[pygame.K_LEFT]:
             cursor[0] = max(0, cursor[0] - 1)
         if keys[pygame.K_RIGHT]:
-            cursor[0] = min(terrain.width - 2, cursor[0] + 1)
+            cursor[0] = min(terrain.width - 1, cursor[0] + 1)
         if keys[pygame.K_UP]:
             cursor[1] = max(0, cursor[1] - 1)
         if keys[pygame.K_DOWN]:
-            cursor[1] = min(terrain.height - 2, cursor[1] + 1)
+            cursor[1] = min(terrain.height - 1, cursor[1] + 1)
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glLoadIdentity()
