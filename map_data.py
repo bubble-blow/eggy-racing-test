@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Tuple
 
 TRACK_HALF_WIDTH = 5.0
 TRACK_LENGTH = 120.0
@@ -12,7 +13,7 @@ class Obstacle:
     hx: float
     hy: float
     hz: float
-    color: tuple[float, float, float]
+    color: Tuple[float, float, float]
 
 
 OBSTACLES = [
