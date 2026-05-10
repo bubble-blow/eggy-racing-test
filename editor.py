@@ -66,9 +66,9 @@ def main() -> None:
                     mode = "adaptive" if mode == "fixed" else "fixed"
                 if event.key == pygame.K_s:
                     terrain.save()
-                if event.key == pygame.K_EQUALS:
+                if event.key in (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS):
                     brush_height += 0.5
-                if event.key == pygame.K_MINUS:
+                if event.key in (pygame.K_MINUS, pygame.K_UNDERSCORE, pygame.K_KP_MINUS):
                     brush_height -= 0.5
                 if event.key == pygame.K_SPACE:
                     terrain.set_cell_height(cursor[0], cursor[1], brush_height, mode)
