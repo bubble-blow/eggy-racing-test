@@ -61,8 +61,15 @@ def main() -> None:
 
         ball["speed"] *= max(0.0, 1.0 - drag * dt)
         heading = math.radians(ball["yaw"])
-        ball["x"] += math.sin(heading) * ball["speed"] * dt
-        ball["z"] += math.cos(heading) * ball["speed"] * dt
+        next_x = ball["x"] + math.sin(heading) * ball["speed"] * dt
+        next_z = ball["z"] + math.cos(heading) * ball["speed"] * dt
+        cx, cy = terrain.world_to_cell(ball["x"], ball["z"])
+        nx, ny = terrain.world_to_cell(next_x, next_z)
+        max_step = 0.8
+        if (cx, cy) != (nx, ny) and terrain.edge_step_too_high(cx, cy, nx, ny, max_step):
+            ball["speed"] *= 0.35
+        else:
+            ball["x"], ball["z"] = next_x, next_z
         ground = terrain.sample_height(ball["x"], ball["z"])
         ball["y"] = ground + radius
 

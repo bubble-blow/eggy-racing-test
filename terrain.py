@@ -107,6 +107,20 @@ class Terrain:
             c[2] = (c[2] + right[3]) * 0.5
         return c
 
+    def world_to_cell(self, world_x: float, world_z: float) -> tuple[int, int]:
+        gx = np.clip(world_x + self.width / 2, 0, self.width - 1e-4)
+        gy = np.clip(world_z + self.height / 2, 0, self.height - 1e-4)
+        return int(np.floor(gx)), int(np.floor(gy))
+
+    def cell_center_height(self, x: int, y: int) -> float:
+        h00, h10, h11, h01 = self._effective_corners(x, y)
+        return float((h00 + h10 + h11 + h01) * 0.25)
+
+    def edge_step_too_high(self, x0: int, y0: int, x1: int, y1: int, max_step: float) -> bool:
+        if not (0 <= x1 < self.width and 0 <= y1 < self.height):
+            return True
+        return abs(self.cell_center_height(x1, y1) - self.cell_center_height(x0, y0)) > max_step
+
     def sample_height(self, world_x: float, world_z: float) -> float:
         gx = np.clip(world_x + self.width / 2, 0, self.width - 1e-4)
         gy = np.clip(world_z + self.height / 2, 0, self.height - 1e-4)
@@ -136,3 +150,31 @@ def draw_terrain(terrain: Terrain, wireframe: bool = False) -> None:
             glVertex3f(wx + 1, h11, wz + 1)
             glVertex3f(wx, h01, wz + 1)
             glEnd()
+
+            if not wireframe:
+                # right wall (draw only once per shared edge)
+                if x < terrain.width - 1:
+                    nh00, nh10, nh11, nh01 = terrain._effective_corners(x + 1, y)
+                    a0, a1 = h10, h11
+                    b0, b1 = nh00, nh01
+                    if abs(a0 - b0) > 1e-4 or abs(a1 - b1) > 1e-4:
+                        glColor3f(0.35, 0.25, 0.18)
+                        glBegin(GL_QUADS)
+                        glVertex3f(wx + 1, a0, wz)
+                        glVertex3f(wx + 1, a1, wz + 1)
+                        glVertex3f(wx + 1, b1, wz + 1)
+                        glVertex3f(wx + 1, b0, wz)
+                        glEnd()
+                # bottom wall
+                if y < terrain.height - 1:
+                    nh00, nh10, nh11, nh01 = terrain._effective_corners(x, y + 1)
+                    a0, a1 = h01, h11
+                    b0, b1 = nh00, nh10
+                    if abs(a0 - b0) > 1e-4 or abs(a1 - b1) > 1e-4:
+                        glColor3f(0.35, 0.25, 0.18)
+                        glBegin(GL_QUADS)
+                        glVertex3f(wx, a0, wz + 1)
+                        glVertex3f(wx + 1, a1, wz + 1)
+                        glVertex3f(wx + 1, b1, wz + 1)
+                        glVertex3f(wx, b0, wz + 1)
+                        glEnd()
