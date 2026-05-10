@@ -7,7 +7,7 @@ from pygame.locals import DOUBLEBUF, OPENGL
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-from map_data import OBSTACLES, TRACK_HALF_WIDTH, TRACK_LENGTH, ground_height, slope_dz
+from map_data import OBSTACLES, TRACK_LENGTH, ground_height, slope_dz, track_half_width
 
 # ===== 全局参数 =====
 WINDOW_WIDTH = 1280
@@ -66,7 +66,7 @@ class Track:
         return ground_height(z)
 
     def on_track(self, x: float, z: float) -> bool:
-        return abs(x) <= TRACK_HALF_WIDTH and 0.0 <= z <= TRACK_LENGTH
+        return abs(x) <= track_half_width(z) and 0.0 <= z <= TRACK_LENGTH
 
     def slope_dz(self, z: float) -> float:
         return slope_dz(z)
@@ -136,12 +136,13 @@ class Game:
         b.pos = b.pos + b.vel * dt
 
         # 轨道边界碰撞（左右墙）
-        if b.pos.x - BALL_RADIUS < -TRACK_HALF_WIDTH:
-            b.pos.x = -TRACK_HALF_WIDTH + BALL_RADIUS
+        half_w = track_half_width(b.pos.z)
+        if b.pos.x - BALL_RADIUS < -half_w:
+            b.pos.x = -half_w + BALL_RADIUS
             if b.vel.x < 0.0:
                 b.vel.x = -b.vel.x * RESTITUTION
-        elif b.pos.x + BALL_RADIUS > TRACK_HALF_WIDTH:
-            b.pos.x = TRACK_HALF_WIDTH - BALL_RADIUS
+        elif b.pos.x + BALL_RADIUS > half_w:
+            b.pos.x = half_w - BALL_RADIUS
             if b.vel.x > 0.0:
                 b.vel.x = -b.vel.x * RESTITUTION
 
@@ -207,8 +208,9 @@ class Game:
             z = TRACK_LENGTH * i / strips
             y = self.track.ground_height(z)
             glNormal3f(0.0, 1.0, 0.0)
-            glVertex3f(-TRACK_HALF_WIDTH, y, z)
-            glVertex3f(TRACK_HALF_WIDTH, y, z)
+            hw = track_half_width(z)
+            glVertex3f(-hw, y, z)
+            glVertex3f(hw, y, z)
         glEnd()
 
         # 中线和分段标记
@@ -252,24 +254,26 @@ class Game:
 
         # 边界护栏
         glColor3f(0.8, 0.15, 0.1)
-        for x in (-TRACK_HALF_WIDTH, TRACK_HALF_WIDTH):
+        for side in (-1.0, 1.0):
             glBegin(GL_LINE_STRIP)
             for i in range(strips + 1):
                 z = TRACK_LENGTH * i / strips
                 y = self.track.ground_height(z) + 0.6
+                x = side * track_half_width(z)
                 glVertex3f(x, y, z)
             glEnd()
 
         # 拱门（类似小隧道）
         glColor3f(0.35, 0.35, 0.38)
-        for z in (22.0, 58.0, 96.0):
+        for z in (22.0, 58.0, 96.0, 132.0, 176.0, 208.0):
             self.draw_arch(z)
 
     def draw_arch(self, z: float):
         y = self.track.ground_height(z)
-        self.draw_box(center=Vec3(-TRACK_HALF_WIDTH - 0.3, y + 1.4, z), half=Vec3(0.25, 1.4, 0.25))
-        self.draw_box(center=Vec3(TRACK_HALF_WIDTH + 0.3, y + 1.4, z), half=Vec3(0.25, 1.4, 0.25))
-        self.draw_box(center=Vec3(0.0, y + 2.75, z), half=Vec3(TRACK_HALF_WIDTH + 0.55, 0.25, 0.25))
+        hw = track_half_width(z)
+        self.draw_box(center=Vec3(-hw - 0.3, y + 1.4, z), half=Vec3(0.25, 1.4, 0.25))
+        self.draw_box(center=Vec3(hw + 0.3, y + 1.4, z), half=Vec3(0.25, 1.4, 0.25))
+        self.draw_box(center=Vec3(0.0, y + 2.75, z), half=Vec3(hw + 0.55, 0.25, 0.25))
 
     def draw_box(self, center: Vec3, half: Vec3):
         cx, cy, cz = center.x, center.y, center.z
