@@ -1,13 +1,12 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
 
 import numpy as np
 
 TERRAIN_PATH = Path("data/terrain.json")
 
-Mode = Literal["fixed", "adaptive"]
+Mode = str
 
 
 @dataclass
