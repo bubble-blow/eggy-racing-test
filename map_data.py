@@ -42,6 +42,27 @@ def track_half_width(z: float) -> float:
     return 10.0
 
 
+def track_intervals(z: float):
+    """返回当前 z 截面允许通行的多个 x 区间，用于分支赛道。"""
+    # 主赛道
+    main_hw = track_half_width(z)
+    intervals = [(-main_hw, main_hw)]
+
+    # 左分支：70~145
+    if 70.0 <= z <= 145.0:
+        intervals.append((-16.0, -10.0))
+
+    # 右分支：95~185
+    if 95.0 <= z <= 185.0:
+        intervals.append((10.0, 15.5))
+
+    # 末段外环分支：170~220
+    if 170.0 <= z <= 220.0:
+        intervals.append((-18.5, -13.5))
+
+    return intervals
+
+
 def ground_height(z: float) -> float:
     # 平地 -> 上坡 -> 高台 -> 下坡 -> 平地 -> 大上坡 -> 高台 -> 下坡
     if z < 30.0:

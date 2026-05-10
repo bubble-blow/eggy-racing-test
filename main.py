@@ -7,7 +7,7 @@ from pygame.locals import DOUBLEBUF, OPENGL
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-from map_data import OBSTACLES, TRACK_LENGTH, ground_height, slope_dz, track_half_width
+from map_data import OBSTACLES, TRACK_LENGTH, ground_height, slope_dz, track_half_width, track_intervals
 
 # ===== 全局参数 =====
 WINDOW_WIDTH = 1280
@@ -66,7 +66,12 @@ class Track:
         return ground_height(z)
 
     def on_track(self, x: float, z: float) -> bool:
-        return abs(x) <= track_half_width(z) and 0.0 <= z <= TRACK_LENGTH
+        if not (0.0 <= z <= TRACK_LENGTH):
+            return False
+        for left, right in track_intervals(z):
+            if left <= x <= right:
+                return True
+        return False
 
     def slope_dz(self, z: float) -> float:
         return slope_dz(z)
@@ -135,15 +140,19 @@ class Game:
 
         b.pos = b.pos + b.vel * dt
 
-        # 轨道边界碰撞（左右墙）
-        half_w = track_half_width(b.pos.z)
-        if b.pos.x - BALL_RADIUS < -half_w:
-            b.pos.x = -half_w + BALL_RADIUS
-            if b.vel.x < 0.0:
-                b.vel.x = -b.vel.x * RESTITUTION
-        elif b.pos.x + BALL_RADIUS > half_w:
-            b.pos.x = half_w - BALL_RADIUS
-            if b.vel.x > 0.0:
+        # 轨道边界碰撞（支持多分支区间）
+        intervals = track_intervals(b.pos.z)
+        valid = any((left + BALL_RADIUS) <= b.pos.x <= (right - BALL_RADIUS) for left, right in intervals)
+        if not valid:
+            # 把球体吸附回最近赛道区间，并按法线方向反弹
+            clamped_candidates = []
+            for left, right in intervals:
+                cx = min(max(b.pos.x, left + BALL_RADIUS), right - BALL_RADIUS)
+                clamped_candidates.append(cx)
+            target_x = min(clamped_candidates, key=lambda cx: abs(cx - b.pos.x))
+            was_left = b.pos.x < target_x
+            b.pos.x = target_x
+            if (was_left and b.vel.x < 0.0) or ((not was_left) and b.vel.x > 0.0):
                 b.vel.x = -b.vel.x * RESTITUTION
 
         # 起点/终点边界
@@ -203,15 +212,19 @@ class Game:
         # 主轨道
         glColor3f(0.18, 0.18, 0.18)
         strips = 120
-        glBegin(GL_QUAD_STRIP)
         for i in range(strips + 1):
             z = TRACK_LENGTH * i / strips
             y = self.track.ground_height(z)
-            glNormal3f(0.0, 1.0, 0.0)
-            hw = track_half_width(z)
-            glVertex3f(-hw, y, z)
-            glVertex3f(hw, y, z)
-        glEnd()
+            for left, right in track_intervals(z):
+                glBegin(GL_QUADS)
+                z_next = TRACK_LENGTH * min(i + 1, strips) / strips
+                y_next = self.track.ground_height(z_next)
+                glNormal3f(0.0, 1.0, 0.0)
+                glVertex3f(left, y, z)
+                glVertex3f(right, y, z)
+                glVertex3f(right, y_next, z_next)
+                glVertex3f(left, y_next, z_next)
+                glEnd()
 
         # 中线和分段标记
         glColor3f(0.92, 0.92, 0.92)
