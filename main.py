@@ -293,12 +293,14 @@ class Game:
 
         # 边界护栏
         glColor3f(0.8, 0.15, 0.1)
+        strips = 140
+        rail_half_width = 8.0
         for side in (-1.0, 1.0):
             glBegin(GL_LINE_STRIP)
             for i in range(strips + 1):
                 z = TRACK_LENGTH * i / strips
                 y = self.track.ground_height(z) + 0.6
-                x = side * track_half_width(z)
+                x = side * rail_half_width
                 glVertex3f(x, y, z)
             glEnd()
 
@@ -309,7 +311,7 @@ class Game:
 
     def draw_arch(self, z: float):
         y = self.track.ground_height(z)
-        hw = track_half_width(z)
+        hw = 8.0
         self.draw_box(center=Vec3(-hw - 0.3, y + 1.4, z), half=Vec3(0.25, 1.4, 0.25))
         self.draw_box(center=Vec3(hw + 0.3, y + 1.4, z), half=Vec3(0.25, 1.4, 0.25))
         self.draw_box(center=Vec3(0.0, y + 2.75, z), half=Vec3(hw + 0.55, 0.25, 0.25))
