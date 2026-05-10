@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 
@@ -107,7 +107,7 @@ class Terrain:
             c[2] = (c[2] + right[3]) * 0.5
         return c
 
-    def world_to_cell(self, world_x: float, world_z: float) -> tuple[int, int]:
+    def world_to_cell(self, world_x: float, world_z: float) -> Tuple[int, int]:
         gx = np.clip(world_x + self.width / 2, 0, self.width - 1e-4)
         gy = np.clip(world_z + self.height / 2, 0, self.height - 1e-4)
         return int(np.floor(gx)), int(np.floor(gy))
