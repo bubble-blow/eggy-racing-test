@@ -27,12 +27,33 @@ def main() -> None:
     gluPerspective(60, 1200 / 720, 0.1, 200)
     glMatrixMode(GL_MODELVIEW)
 
-    from OpenGL.GL import glLoadIdentity, glRotatef, glTranslatef
+    from OpenGL.GL import GL_LINE_LOOP, glBegin, glColor3f, glEnd, glLoadIdentity, glRotatef, glTranslatef, glVertex3f
 
     terrain = Terrain.load()
     mode = "fixed"
     brush_height = 2.0
     cursor = [terrain.width // 2, terrain.height // 2]
+
+
+
+    def draw_cursor_highlight() -> None:
+        x, y = cursor
+        wx = x - terrain.width / 2
+        wz = y - terrain.height / 2
+        h00 = terrain.heights[y, x]
+        x1 = min(x + 1, terrain.width - 1)
+        y1 = min(y + 1, terrain.height - 1)
+        h10 = terrain.heights[y, x1]
+        h11 = terrain.heights[y1, x1]
+        h01 = terrain.heights[y1, x]
+        offset = 0.06
+        glColor3f(1.0, 0.2, 0.2)
+        glBegin(GL_LINE_LOOP)
+        glVertex3f(wx, h00 + offset, wz)
+        glVertex3f(wx + 1, h10 + offset, wz)
+        glVertex3f(wx + 1, h11 + offset, wz + 1)
+        glVertex3f(wx, h01 + offset, wz + 1)
+        glEnd()
 
     clock = pygame.time.Clock()
     while True:
@@ -72,6 +93,7 @@ def main() -> None:
         glTranslatef(0.0, -4.5, -32)
         glRotatef(35, 1, 0, 0)
         draw_terrain(terrain, wireframe=True)
+        draw_cursor_highlight()
         pygame.display.flip()
         pygame.display.set_caption(f"Editor mode={mode} brush={brush_height:.1f} cursor={tuple(cursor)}")
         clock.tick(15)
