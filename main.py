@@ -68,10 +68,8 @@ class Track:
     def on_track(self, x: float, z: float) -> bool:
         if not (-40.0 <= x <= 40.0 and 0.0 <= z <= TRACK_LENGTH):
             return False
-        for seg in ROAD_SEGMENTS:
-            if self.point_to_segment_distance(x, z, seg.ax, seg.az, seg.bx, seg.bz) <= seg.half_width:
-                return True
-        return False
+        seg, _, _, dist = self.closest_segment_point(x, z)
+        return seg is not None and dist <= seg.half_width
 
     @staticmethod
     def point_to_segment_distance(px, pz, ax, az, bx, bz):
@@ -82,6 +80,27 @@ class Track:
         t = 0.0 if c2 < 1e-8 else max(0.0, min(1.0, c1 / c2))
         cx, cz = ax + vx * t, az + vz * t
         return math.hypot(px - cx, pz - cz)
+
+    def closest_segment_point(self, x: float, z: float):
+        best_seg, best_cx, best_cz, best_d = None, 0.0, 0.0, 1e9
+        for seg in ROAD_SEGMENTS:
+            vx, vz = seg.bx - seg.ax, seg.bz - seg.az
+            c2 = vx * vx + vz * vz
+            if c2 < 1e-8:
+                continue
+            t = max(0.0, min(1.0, ((x - seg.ax) * vx + (z - seg.az) * vz) / c2))
+            cx, cz = seg.ax + vx * t, seg.az + vz * t
+            d = math.hypot(x - cx, z - cz)
+            if d < best_d:
+                best_seg, best_cx, best_cz, best_d = seg, cx, cz, d
+        return best_seg, best_cx, best_cz, best_d
+
+    def support_height(self, x: float, z: float) -> float:
+        # 与道路投影一致：使用最近赛道点的 z 来获取地形高度，保证渲染与碰撞统一
+        seg, _, cz, _ = self.closest_segment_point(x, z)
+        if seg is None:
+            return ground_height(z)
+        return ground_height(cz)
 
     def slope_dz(self, z: float) -> float:
         return slope_dz(z)
@@ -152,22 +171,9 @@ class Game:
 
         # 赛道外回弹：找到最近道路中心线并拉回
         if not self.track.on_track(b.pos.x, b.pos.z):
-            best = None
-            best_d = 1e9
-            for seg in ROAD_SEGMENTS:
-                vx, vz = seg.bx - seg.ax, seg.bz - seg.az
-                c2 = vx * vx + vz * vz
-                if c2 < 1e-8:
-                    continue
-                t = max(0.0, min(1.0, ((b.pos.x - seg.ax) * vx + (b.pos.z - seg.az) * vz) / c2))
-                cx, cz = seg.ax + vx * t, seg.az + vz * t
+            seg, cx, cz, _ = self.track.closest_segment_point(b.pos.x, b.pos.z)
+            if seg:
                 dx, dz = b.pos.x - cx, b.pos.z - cz
-                d = math.hypot(dx, dz)
-                if d < best_d:
-                    best_d = d
-                    best = (seg, cx, cz, dx, dz)
-            if best:
-                seg, cx, cz, dx, dz = best
                 nlen = math.hypot(dx, dz)
                 nx, nz = (1.0, 0.0) if nlen < 1e-6 else (dx / nlen, dz / nlen)
                 target_dist = seg.half_width - BALL_RADIUS
@@ -189,7 +195,7 @@ class Game:
                 b.vel.z = -b.vel.z * RESTITUTION
 
         # 地形碰撞（平地、斜坡、平台）
-        ground = self.track.ground_height(b.pos.z)
+        ground = self.track.support_height(b.pos.x, b.pos.z)
         min_y = ground + BALL_RADIUS
         if b.pos.y <= min_y + GROUND_STICK_EPS:
             b.pos.y = min_y
@@ -246,10 +252,10 @@ class Game:
             bx2, bz2 = seg.bx - px * seg.half_width, seg.bz - pz * seg.half_width
             glBegin(GL_QUADS)
             glNormal3f(0.0, 1.0, 0.0)
-            glVertex3f(ax1, self.track.ground_height(az1), az1)
-            glVertex3f(ax2, self.track.ground_height(az2), az2)
-            glVertex3f(bx2, self.track.ground_height(bz2), bz2)
-            glVertex3f(bx1, self.track.ground_height(bz1), bz1)
+            glVertex3f(ax1, self.track.support_height(ax1, az1), az1)
+            glVertex3f(ax2, self.track.support_height(ax2, az2), az2)
+            glVertex3f(bx2, self.track.support_height(bx2, bz2), bz2)
+            glVertex3f(bx1, self.track.support_height(bx1, bz1), bz1)
             glEnd()
 
         # 中线和分段标记
