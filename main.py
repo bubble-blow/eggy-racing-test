@@ -7,6 +7,8 @@ from pygame.locals import DOUBLEBUF, OPENGL
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
+from map_data import OBSTACLES, TRACK_HALF_WIDTH, TRACK_LENGTH, ground_height, slope_dz
+
 # ===== 全局参数 =====
 WINDOW_WIDTH = 1280
 WINDOW_HEIGHT = 720
@@ -22,9 +24,6 @@ MAX_SPEED = 34.0
 ACCELERATION = 22.0
 BRAKE_ACCEL = 28.0
 TURN_SPEED = 2.35  # rad/s
-
-TRACK_HALF_WIDTH = 5.0
-TRACK_LENGTH = 120.0
 
 @dataclass
 class Vec3:
@@ -54,14 +53,6 @@ class Vec3:
         return self * (1.0 / l)
 
 
-OBSTACLES = [
-    (Vec3(1.8, 0.8, 36.0), Vec3(0.9, 0.8, 0.9), (0.2, 0.35, 0.9)),
-    (Vec3(-1.5, 0.8, 74.0), Vec3(1.2, 0.8, 1.0), (0.75, 0.3, 0.85)),
-    (Vec3(0.0, 1.0, 52.0), Vec3(0.7, 1.0, 0.7), (0.92, 0.45, 0.2)),
-    (Vec3(2.8, 0.6, 92.0), Vec3(0.8, 0.6, 1.5), (0.18, 0.65, 0.75)),
-    (Vec3(-2.8, 0.6, 102.0), Vec3(0.8, 0.6, 1.5), (0.18, 0.65, 0.75)),
-]
-
 
 @dataclass
 class Ball:
@@ -72,26 +63,13 @@ class Ball:
 
 class Track:
     def ground_height(self, z: float) -> float:
-        # 平地 -> 斜坡上升 -> 平台 -> 斜坡下降
-        if z < 26.0:
-            return 0.0
-        if z < 46.0:
-            return (z - 26.0) * 0.28
-        if z < 66.0:
-            return 5.6
-        if z < 86.0:
-            return 5.6 - (z - 66.0) * 0.28
-        return 0.0
+        return ground_height(z)
 
     def on_track(self, x: float, z: float) -> bool:
         return abs(x) <= TRACK_HALF_WIDTH and 0.0 <= z <= TRACK_LENGTH
 
     def slope_dz(self, z: float) -> float:
-        if 26.0 <= z < 46.0:
-            return 0.28
-        if 66.0 <= z < 86.0:
-            return -0.28
-        return 0.0
+        return slope_dz(z)
 
     def ground_normal(self, z: float) -> Vec3:
         # 高度场 y = h(z), 法线可写成 (0, 1, -h'(z))
@@ -197,9 +175,10 @@ class Game:
             b.vel.z *= FRICTION
 
         # 障碍物碰撞（AABB vs Sphere）
-        for center, half, _ in OBSTACLES:
-            c = Vec3(center.x, self.track.ground_height(center.z) + center.y, center.z)
-            self.resolve_box_collision(center=c, half=half)
+        for obs in OBSTACLES:
+            center = Vec3(obs.x, self.track.ground_height(obs.z) + obs.y_offset, obs.z)
+            half = Vec3(obs.hx, obs.hy, obs.hz)
+            self.resolve_box_collision(center=center, half=half)
 
     def resolve_box_collision(self, center: Vec3, half: Vec3):
         b = self.ball
@@ -346,10 +325,11 @@ class Game:
         self.set_camera()
         self.draw_track()
 
-        for center, half, color in OBSTACLES:
-            glColor3f(*color)
-            c = Vec3(center.x, self.track.ground_height(center.z) + center.y, center.z)
-            self.draw_box(center=c, half=half)
+        for obs in OBSTACLES:
+            glColor3f(*obs.color)
+            center = Vec3(obs.x, self.track.ground_height(obs.z) + obs.y_offset, obs.z)
+            half = Vec3(obs.hx, obs.hy, obs.hz)
+            self.draw_box(center=center, half=half)
 
         self.draw_ball()
         pygame.display.flip()
