@@ -7,7 +7,7 @@ from pygame.locals import DOUBLEBUF, OPENGL
 from OpenGL.GL import *
 from OpenGL.GLU import *
 
-from map_data import OBSTACLES, TRACK_LENGTH, ground_height, slope_dz, track_half_width, track_intervals
+from map_data import OBSTACLES, ROAD_SEGMENTS, TRACK_LENGTH, ground_height, slope_dz
 
 # ===== 全局参数 =====
 WINDOW_WIDTH = 1280
@@ -66,12 +66,22 @@ class Track:
         return ground_height(z)
 
     def on_track(self, x: float, z: float) -> bool:
-        if not (0.0 <= z <= TRACK_LENGTH):
+        if not (-40.0 <= x <= 40.0 and 0.0 <= z <= TRACK_LENGTH):
             return False
-        for left, right in track_intervals(z):
-            if left <= x <= right:
+        for seg in ROAD_SEGMENTS:
+            if self.point_to_segment_distance(x, z, seg.ax, seg.az, seg.bx, seg.bz) <= seg.half_width:
                 return True
         return False
+
+    @staticmethod
+    def point_to_segment_distance(px, pz, ax, az, bx, bz):
+        vx, vz = bx - ax, bz - az
+        wx, wz = px - ax, pz - az
+        c1 = vx * wx + vz * wz
+        c2 = vx * vx + vz * vz
+        t = 0.0 if c2 < 1e-8 else max(0.0, min(1.0, c1 / c2))
+        cx, cz = ax + vx * t, az + vz * t
+        return math.hypot(px - cx, pz - cz)
 
     def slope_dz(self, z: float) -> float:
         return slope_dz(z)
@@ -140,20 +150,33 @@ class Game:
 
         b.pos = b.pos + b.vel * dt
 
-        # 轨道边界碰撞（支持多分支区间）
-        intervals = track_intervals(b.pos.z)
-        valid = any((left + BALL_RADIUS) <= b.pos.x <= (right - BALL_RADIUS) for left, right in intervals)
-        if not valid:
-            # 把球体吸附回最近赛道区间，并按法线方向反弹
-            clamped_candidates = []
-            for left, right in intervals:
-                cx = min(max(b.pos.x, left + BALL_RADIUS), right - BALL_RADIUS)
-                clamped_candidates.append(cx)
-            target_x = min(clamped_candidates, key=lambda cx: abs(cx - b.pos.x))
-            was_left = b.pos.x < target_x
-            b.pos.x = target_x
-            if (was_left and b.vel.x < 0.0) or ((not was_left) and b.vel.x > 0.0):
-                b.vel.x = -b.vel.x * RESTITUTION
+        # 赛道外回弹：找到最近道路中心线并拉回
+        if not self.track.on_track(b.pos.x, b.pos.z):
+            best = None
+            best_d = 1e9
+            for seg in ROAD_SEGMENTS:
+                vx, vz = seg.bx - seg.ax, seg.bz - seg.az
+                c2 = vx * vx + vz * vz
+                if c2 < 1e-8:
+                    continue
+                t = max(0.0, min(1.0, ((b.pos.x - seg.ax) * vx + (b.pos.z - seg.az) * vz) / c2))
+                cx, cz = seg.ax + vx * t, seg.az + vz * t
+                dx, dz = b.pos.x - cx, b.pos.z - cz
+                d = math.hypot(dx, dz)
+                if d < best_d:
+                    best_d = d
+                    best = (seg, cx, cz, dx, dz)
+            if best:
+                seg, cx, cz, dx, dz = best
+                nlen = math.hypot(dx, dz)
+                nx, nz = (1.0, 0.0) if nlen < 1e-6 else (dx / nlen, dz / nlen)
+                target_dist = seg.half_width - BALL_RADIUS
+                b.pos.x = cx + nx * target_dist
+                b.pos.z = cz + nz * target_dist
+                vdot = b.vel.x * nx + b.vel.z * nz
+                if vdot < 0.0:
+                    b.vel.x -= (1.0 + RESTITUTION) * vdot * nx
+                    b.vel.z -= (1.0 + RESTITUTION) * vdot * nz
 
         # 起点/终点边界
         if b.pos.z - BALL_RADIUS < 0.0:
@@ -209,22 +232,25 @@ class Game:
                 b.vel = b.vel - normal * ((1.0 + RESTITUTION) * vn)
 
     def draw_track(self):
-        # 主轨道
+        # 多段道路（支持夹角道路）
         glColor3f(0.18, 0.18, 0.18)
-        strips = 120
-        for i in range(strips + 1):
-            z = TRACK_LENGTH * i / strips
-            y = self.track.ground_height(z)
-            for left, right in track_intervals(z):
-                glBegin(GL_QUADS)
-                z_next = TRACK_LENGTH * min(i + 1, strips) / strips
-                y_next = self.track.ground_height(z_next)
-                glNormal3f(0.0, 1.0, 0.0)
-                glVertex3f(left, y, z)
-                glVertex3f(right, y, z)
-                glVertex3f(right, y_next, z_next)
-                glVertex3f(left, y_next, z_next)
-                glEnd()
+        for seg in ROAD_SEGMENTS:
+            vx, vz = seg.bx - seg.ax, seg.bz - seg.az
+            ll = math.hypot(vx, vz)
+            if ll < 1e-6:
+                continue
+            px, pz = -vz / ll, vx / ll
+            ax1, az1 = seg.ax + px * seg.half_width, seg.az + pz * seg.half_width
+            ax2, az2 = seg.ax - px * seg.half_width, seg.az - pz * seg.half_width
+            bx1, bz1 = seg.bx + px * seg.half_width, seg.bz + pz * seg.half_width
+            bx2, bz2 = seg.bx - px * seg.half_width, seg.bz - pz * seg.half_width
+            glBegin(GL_QUADS)
+            glNormal3f(0.0, 1.0, 0.0)
+            glVertex3f(ax1, self.track.ground_height(az1), az1)
+            glVertex3f(ax2, self.track.ground_height(az2), az2)
+            glVertex3f(bx2, self.track.ground_height(bz2), bz2)
+            glVertex3f(bx1, self.track.ground_height(bz1), bz1)
+            glEnd()
 
         # 中线和分段标记
         glColor3f(0.92, 0.92, 0.92)

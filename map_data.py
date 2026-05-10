@@ -1,8 +1,7 @@
 from dataclasses import dataclass
-from typing import Tuple
+from typing import List, Tuple
 
-TRACK_HALF_WIDTH = 9.0
-TRACK_LENGTH = 220.0
+TRACK_LENGTH = 260.0
 
 
 @dataclass(frozen=True)
@@ -16,81 +15,53 @@ class Obstacle:
     color: Tuple[float, float, float]
 
 
-# 通过障碍布局形成多条可选路径（中路、左路、右路）
+@dataclass(frozen=True)
+class RoadSegment:
+    ax: float
+    az: float
+    bx: float
+    bz: float
+    half_width: float
+
+
+# 多条有夹角的道路（主路 + 两条斜向连接路）
+ROAD_SEGMENTS: List[RoadSegment] = [
+    RoadSegment(0.0, 0.0, 0.0, 260.0, 7.5),            # 主干道
+    RoadSegment(-20.0, 60.0, 18.0, 120.0, 5.2),        # 左下->右上斜道
+    RoadSegment(18.0, 130.0, -22.0, 210.0, 5.0),       # 右下->左上斜道
+    RoadSegment(-24.0, 170.0, -8.0, 250.0, 4.8),       # 外侧支路
+]
+
 OBSTACLES = [
-    Obstacle(0.0, 0.9, 40.0, 0.9, 0.9, 3.2, (0.8, 0.3, 0.2)),
-    Obstacle(-3.2, 0.9, 58.0, 0.9, 0.9, 3.0, (0.2, 0.6, 0.9)),
-    Obstacle(3.2, 0.9, 76.0, 0.9, 0.9, 3.0, (0.2, 0.6, 0.9)),
-    Obstacle(0.0, 1.1, 96.0, 1.2, 1.1, 4.0, (0.92, 0.45, 0.2)),
-    Obstacle(-5.2, 0.7, 116.0, 1.0, 0.7, 2.0, (0.75, 0.3, 0.85)),
-    Obstacle(5.2, 0.7, 116.0, 1.0, 0.7, 2.0, (0.75, 0.3, 0.85)),
-    Obstacle(-2.2, 0.8, 142.0, 0.8, 0.8, 3.4, (0.18, 0.65, 0.75)),
-    Obstacle(2.2, 0.8, 142.0, 0.8, 0.8, 3.4, (0.18, 0.65, 0.75)),
-    Obstacle(0.0, 1.0, 168.0, 1.0, 1.0, 5.0, (0.9, 0.2, 0.35)),
-    Obstacle(-4.0, 0.9, 192.0, 0.8, 0.9, 2.5, (0.2, 0.75, 0.45)),
-    Obstacle(4.0, 0.9, 204.0, 0.8, 0.9, 2.5, (0.2, 0.75, 0.45)),
+    Obstacle(-4.0, 0.9, 40.0, 0.8, 0.9, 2.8, (0.8, 0.3, 0.2)),
+    Obstacle(3.6, 0.9, 82.0, 0.8, 0.9, 2.8, (0.2, 0.6, 0.9)),
+    Obstacle(0.0, 1.1, 140.0, 1.1, 1.1, 4.2, (0.92, 0.45, 0.2)),
+    Obstacle(-6.0, 0.8, 188.0, 0.9, 0.8, 2.2, (0.18, 0.65, 0.75)),
+    Obstacle(5.8, 0.8, 220.0, 0.9, 0.8, 2.2, (0.75, 0.3, 0.85)),
 ]
 
 
-def track_half_width(z: float) -> float:
-    if z < 50.0:
-        return 9.0
-    if z < 120.0:
-        return 11.0
-    if z < 180.0:
-        return 8.0
-    return 10.0
-
-
-def track_intervals(z: float):
-    """返回当前 z 截面允许通行的多个 x 区间，用于分支赛道。"""
-    # 主赛道
-    main_hw = track_half_width(z)
-    intervals = [(-main_hw, main_hw)]
-
-    # 左分支：70~145
-    if 70.0 <= z <= 145.0:
-        intervals.append((-16.0, -10.0))
-
-    # 右分支：95~185
-    if 95.0 <= z <= 185.0:
-        intervals.append((10.0, 15.5))
-
-    # 末段外环分支：170~220
-    if 170.0 <= z <= 220.0:
-        intervals.append((-18.5, -13.5))
-
-    return intervals
-
-
 def ground_height(z: float) -> float:
-    # 平地 -> 上坡 -> 高台 -> 下坡 -> 平地 -> 大上坡 -> 高台 -> 下坡
-    if z < 30.0:
+    if z < 40.0:
         return 0.0
-    if z < 60.0:
-        return (z - 30.0) * 0.2
-    if z < 90.0:
-        return 6.0
-    if z < 120.0:
-        return 6.0 - (z - 90.0) * 0.2
-    if z < 150.0:
-        return 0.0
-    if z < 180.0:
-        return (z - 150.0) * 0.25
-    if z < 205.0:
-        return 7.5
-    if z < 220.0:
-        return 7.5 - (z - 205.0) * 0.5
-    return 0.0
+    if z < 80.0:
+        return (z - 40.0) * 0.16
+    if z < 130.0:
+        return 6.4
+    if z < 170.0:
+        return 6.4 - (z - 130.0) * 0.16
+    if z < 210.0:
+        return (z - 170.0) * 0.12
+    return max(0.0, 4.8 - (z - 210.0) * 0.12)
 
 
 def slope_dz(z: float) -> float:
-    if 30.0 <= z < 60.0:
-        return 0.2
-    if 90.0 <= z < 120.0:
-        return -0.2
-    if 150.0 <= z < 180.0:
-        return 0.25
-    if 205.0 <= z < 220.0:
-        return -0.5
+    if 40.0 <= z < 80.0:
+        return 0.16
+    if 130.0 <= z < 170.0:
+        return -0.16
+    if 170.0 <= z < 210.0:
+        return 0.12
+    if 210.0 <= z < 250.0:
+        return -0.12
     return 0.0
