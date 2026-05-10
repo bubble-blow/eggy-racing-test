@@ -1,6 +1,7 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import List
 
 import numpy as np
 
@@ -11,14 +12,14 @@ Mode = str
 @dataclass
 class Cell:
     mode: Mode
-    corners: list[float]  # [h00, h10, h11, h01]
+    corners: List[float]  # [h00, h10, h11, h01]
 
 
 @dataclass
 class Terrain:
     width: int
     height: int
-    cells: list[list[Cell]]
+    cells: List[List[Cell]]
 
     def save(self, path: Path = TERRAIN_PATH) -> None:
         payload = {
@@ -80,7 +81,7 @@ class Terrain:
         self.cells[cell_y][cell_x].mode = mode
         self.cells[cell_y][cell_x].corners = [float(value)] * 4
 
-    def _effective_corners(self, x: int, y: int) -> list[float]:
+    def _effective_corners(self, x: int, y: int) -> List[float]:
         cell = self.cells[y][x]
         if cell.mode != "adaptive":
             return cell.corners
