@@ -26,6 +26,14 @@ TURN_SPEED = 2.35  # rad/s
 TRACK_HALF_WIDTH = 5.0
 TRACK_LENGTH = 120.0
 
+OBSTACLES = [
+    (Vec3(1.8, 0.8, 36.0), Vec3(0.9, 0.8, 0.9), (0.2, 0.35, 0.9)),
+    (Vec3(-1.5, 0.8, 74.0), Vec3(1.2, 0.8, 1.0), (0.75, 0.3, 0.85)),
+    (Vec3(0.0, 1.0, 52.0), Vec3(0.7, 1.0, 0.7), (0.92, 0.45, 0.2)),
+    (Vec3(2.8, 0.6, 92.0), Vec3(0.8, 0.6, 1.5), (0.18, 0.65, 0.75)),
+    (Vec3(-2.8, 0.6, 102.0), Vec3(0.8, 0.6, 1.5), (0.18, 0.65, 0.75)),
+]
+
 
 @dataclass
 class Vec3:
@@ -188,9 +196,10 @@ class Game:
             b.vel.x *= FRICTION
             b.vel.z *= FRICTION
 
-        # 轨道中间两个立方体障碍的碰撞（AABB vs Sphere）
-        self.resolve_box_collision(center=Vec3(1.8, ground + 0.8, 36.0), half=Vec3(0.9, 0.8, 0.9))
-        self.resolve_box_collision(center=Vec3(-1.5, ground + 0.8, 74.0), half=Vec3(1.2, 0.8, 1.0))
+        # 障碍物碰撞（AABB vs Sphere）
+        for center, half, _ in OBSTACLES:
+            c = Vec3(center.x, self.track.ground_height(center.z) + center.y, center.z)
+            self.resolve_box_collision(center=c, half=half)
 
     def resolve_box_collision(self, center: Vec3, half: Vec3):
         b = self.ball
@@ -223,6 +232,35 @@ class Game:
             glVertex3f(TRACK_HALF_WIDTH, y, z)
         glEnd()
 
+        # 中线和分段标记
+        glColor3f(0.92, 0.92, 0.92)
+        glBegin(GL_QUADS)
+        for i in range(16):
+            z0 = 4.0 + i * 7.0
+            z1 = z0 + 3.2
+            y0 = self.track.ground_height(z0) + 0.01
+            y1 = self.track.ground_height(z1) + 0.01
+            glVertex3f(-0.15, y0, z0)
+            glVertex3f(0.15, y0, z0)
+            glVertex3f(0.15, y1, z1)
+            glVertex3f(-0.15, y1, z1)
+        glEnd()
+
+        # 路侧减速带
+        glColor3f(1.0, 0.95, 0.2)
+        glBegin(GL_QUADS)
+        for i in range(0, 22):
+            z0 = 10.0 + i * 5.0
+            z1 = z0 + 1.4
+            y0 = self.track.ground_height(z0) + 0.01
+            y1 = self.track.ground_height(z1) + 0.01
+            for x in (-4.7, 4.3):
+                glVertex3f(x, y0, z0)
+                glVertex3f(x + 0.4, y0, z0)
+                glVertex3f(x + 0.4, y1, z1)
+                glVertex3f(x, y1, z1)
+        glEnd()
+
         # 草地
         glColor3f(0.20, 0.50, 0.22)
         glBegin(GL_QUADS)
@@ -242,6 +280,17 @@ class Game:
                 y = self.track.ground_height(z) + 0.6
                 glVertex3f(x, y, z)
             glEnd()
+
+        # 拱门（类似小隧道）
+        glColor3f(0.35, 0.35, 0.38)
+        for z in (22.0, 58.0, 96.0):
+            self.draw_arch(z)
+
+    def draw_arch(self, z: float):
+        y = self.track.ground_height(z)
+        self.draw_box(center=Vec3(-TRACK_HALF_WIDTH - 0.3, y + 1.4, z), half=Vec3(0.25, 1.4, 0.25))
+        self.draw_box(center=Vec3(TRACK_HALF_WIDTH + 0.3, y + 1.4, z), half=Vec3(0.25, 1.4, 0.25))
+        self.draw_box(center=Vec3(0.0, y + 2.75, z), half=Vec3(TRACK_HALF_WIDTH + 0.55, 0.25, 0.25))
 
     def draw_box(self, center: Vec3, half: Vec3):
         cx, cy, cz = center.x, center.y, center.z
@@ -297,10 +346,10 @@ class Game:
         self.set_camera()
         self.draw_track()
 
-        glColor3f(0.2, 0.35, 0.9)
-        self.draw_box(center=Vec3(1.8, self.track.ground_height(36.0) + 0.8, 36.0), half=Vec3(0.9, 0.8, 0.9))
-        glColor3f(0.75, 0.3, 0.85)
-        self.draw_box(center=Vec3(-1.5, self.track.ground_height(74.0) + 0.8, 74.0), half=Vec3(1.2, 0.8, 1.0))
+        for center, half, color in OBSTACLES:
+            glColor3f(*color)
+            c = Vec3(center.x, self.track.ground_height(center.z) + center.y, center.z)
+            self.draw_box(center=c, half=half)
 
         self.draw_ball()
         pygame.display.flip()
