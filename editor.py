@@ -1,0 +1,68 @@
+import sys
+
+import pygame
+from OpenGL.GL import GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_DEPTH_TEST, glClear, glEnable
+from OpenGL.GLU import gluPerspective
+
+from terrain import Terrain, draw_terrain
+
+
+def main() -> None:
+    pygame.init()
+    screen = pygame.display.set_mode((1200, 720), pygame.DOUBLEBUF | pygame.OPENGL)
+    pygame.display.set_caption("Terrain Editor")
+    glEnable(GL_DEPTH_TEST)
+    gluPerspective(60, 1200 / 720, 0.1, 200)
+
+    from OpenGL.GL import glLoadIdentity, glRotatef, glTranslatef
+
+    terrain = Terrain.load()
+    mode = "fixed"
+    brush_height = 2.0
+    cursor = [terrain.width // 2, terrain.height // 2]
+
+    clock = pygame.time.Clock()
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terrain.save()
+                pygame.quit()
+                sys.exit(0)
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    terrain.save()
+                    pygame.quit()
+                    sys.exit(0)
+                if event.key == pygame.K_TAB:
+                    mode = "adaptive" if mode == "fixed" else "fixed"
+                if event.key == pygame.K_s:
+                    terrain.save()
+                if event.key == pygame.K_EQUALS:
+                    brush_height += 0.5
+                if event.key == pygame.K_MINUS:
+                    brush_height -= 0.5
+                if event.key == pygame.K_SPACE:
+                    terrain.set_height(cursor[0], cursor[1], brush_height, mode)
+
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_LEFT]:
+            cursor[0] = max(0, cursor[0] - 1)
+        if keys[pygame.K_RIGHT]:
+            cursor[0] = min(terrain.width - 1, cursor[0] + 1)
+        if keys[pygame.K_UP]:
+            cursor[1] = max(0, cursor[1] - 1)
+        if keys[pygame.K_DOWN]:
+            cursor[1] = min(terrain.height - 1, cursor[1] + 1)
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glLoadIdentity()
+        glTranslatef(0.0, -4.5, -32)
+        glRotatef(35, 1, 0, 0)
+        draw_terrain(terrain, wireframe=True)
+        pygame.display.flip()
+        pygame.display.set_caption(f"Editor mode={mode} brush={brush_height:.1f} cursor={tuple(cursor)}")
+        clock.tick(15)
+
+
+if __name__ == "__main__":
+    main()
